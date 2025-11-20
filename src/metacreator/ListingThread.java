@@ -14,46 +14,45 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class ListingThread implements Runnable {
-    private BlockingQueue<String> dirs;
-    private BlockingQueue<XrootdFile> files;
-    private String server = Main.metacreatorProperties.gets("seioDaemons", Main.defaultseioDaemons)
-            .substring(Main.metacreatorProperties.gets("seioDaemons",
-                    Main.defaultseioDaemons).lastIndexOf('/') + 1);
-    private static Logger logger = ConfigUtils.getLogger(ListingThread.class.getCanonicalName());
-    private static final Monitor monitor = MonitorFactory.getMonitor(ListingThread.class.getCanonicalName());
+	private BlockingQueue<String> dirs;
+	private BlockingQueue<XrootdFile> files;
 
-    ListingThread(BlockingQueue<String> dirs, BlockingQueue<XrootdFile> files) {
-        this.dirs = dirs;
-        this.files = files;
-    }
+	private static Logger logger = ConfigUtils.getLogger(ListingThread.class.getCanonicalName());
+	private static final Monitor monitor = MonitorFactory.getMonitor(ListingThread.class.getCanonicalName());
 
-    @Override
-    public void run() {
-        while(!dirs.isEmpty()) {
-            try {
-                String path = dirs.take();
-                logger.log(Level.INFO, "Listing dir: " + path);
-                try (Timing t = new Timing(monitor, "listing_execution_time")) {
-                    addFiles(path);
-                }
-            } catch (InterruptedException | IOException e) {
-                logger.log(Level.WARNING, "Caught exception in listing thread!", e);
-            }
-        }
-    }
+	ListingThread(BlockingQueue<String> dirs, BlockingQueue<XrootdFile> files) {
+		this.dirs = dirs;
+		this.files = files;
+	}
 
-     private void addFiles(String path) throws IOException {
-        XrootdListing listing = new XrootdListing(server, path);
-        Set<XrootdFile> directories = listing.getDirs();
-        Set<XrootdFile> listFiles = listing.getFiles();
+	@Override
+	public void run() {
+		while (!dirs.isEmpty()) {
+			try {
+				String path = dirs.take();
+				logger.log(Level.INFO, "Listing dir: " + path);
+				try (Timing t = new Timing(monitor, "listing_execution_time")) {
+					addFiles(path);
+				}
+			}
+			catch (InterruptedException | IOException e) {
+				logger.log(Level.WARNING, "Caught exception in listing thread!", e);
+			}
+		}
+	}
 
-        for (XrootdFile file : listFiles) {
-            files.add(file);
-            Main.nrFilesProcessed.getAndIncrement();
-        }
+	private void addFiles(String path) throws IOException {
+		XrootdListing listing = new XrootdListing(analyzer.Main.getXrootdClient(), path);
+		Set<XrootdFile> directories = listing.getDirs();
+		Set<XrootdFile> listFiles = listing.getFiles();
 
-        for (XrootdFile dir : directories) {
-            addFiles(dir.path);
-        }
-    }
+		for (XrootdFile file : listFiles) {
+			files.add(file);
+			Main.nrFilesProcessed.getAndIncrement();
+		}
+
+		for (XrootdFile dir : directories) {
+			addFiles(dir.getFullPath());
+		}
+	}
 }

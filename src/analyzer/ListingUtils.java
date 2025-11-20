@@ -3,12 +3,14 @@ package analyzer;
 import alien.config.ConfigUtils;
 import alien.io.xrootd.XrootdFile;
 import alien.io.xrootd.XrootdListing;
+import alien.io.xrootd.client.XrootdClient;
 import spooler.Pair;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Level;
@@ -49,14 +51,14 @@ public class ListingUtils {
     }
 
     public static Set<XrootdFile> getFirstLevelDirs(String path) throws IOException {
-        XrootdListing listing = new XrootdListing(server, path, null);
+        XrootdListing listing = new XrootdListing(Main.getXrootdClient(), path, null);
         return listing.getDirs();
     }
 
-    public static Pair<Integer, Long> scanFiles(String path) {
-        return scanFiles(server, path, statFileName);
+    public static Pair<Integer, Long> scanFiles(String path) throws MalformedURLException {
+        return scanFiles(Main.getXrootdClient(), path, statFileName);
     }
-    public static Pair<Integer, Long> scanFiles(String server, String path, String outputFileName) {
+    public static Pair<Integer, Long> scanFiles(XrootdClient server, String path, String outputFileName) {
         XrootdListing listing;
         int nr_files = 0;
         long nr_bytes = 0L;
@@ -68,16 +70,16 @@ public class ListingUtils {
             try (FileWriter writer = new FileWriter(outputFileName, true)) {
                 for (XrootdFile file : listFiles) {
                     nr_files += 1;
-                    nr_bytes += file.size;
+                    nr_bytes += file.getSize();
 
-                    writer.write(file.path + ", " + file.size + "\n");
+                    writer.write(file.getFullPath() + ", " + file.getSize() + "\n");
                 }
             } catch (IOException e) {
                 logger.log(Level.WARNING, "Cannot write to the file: " + ListingUtils.statFileName);
             }
 
             for (XrootdFile dir : directories) {
-                Pair<Integer, Long> stats =  scanFiles(server, dir.path, outputFileName);
+                Pair<Integer, Long> stats =  scanFiles(server, dir.getFullPath(), outputFileName);
                 nr_files += stats.getFirst();
                 nr_bytes += stats.getSecond();
             }
