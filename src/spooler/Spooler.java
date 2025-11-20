@@ -216,6 +216,7 @@ class Spooler extends FileOperator {
 
 			try (Timing t = new Timing(monitor, "transfer_execution_time")) {
 				Xrootd xrootd =  new Xrootd();
+				xrootd.setExpectedMinCopySpeed(5_000_000);	// 5MB/s minimum speed => 2000s (~half an hour) for a 10GB file
 				xrootd.put(pfn, element.getFile(), false);
 				String md5Output = xrootd.getMd5Value();
 				if (md5Output != null && element.getMd5() == null) {
